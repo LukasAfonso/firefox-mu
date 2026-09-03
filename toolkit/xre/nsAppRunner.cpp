@@ -75,6 +75,9 @@
 #include "prtime.h"
 
 #include "nsIAppStartup.h"
+#ifdef MOZ_MULTIUSER
+#  include "nsIBackgroundTasksRunner.h"
+#endif
 #include "nsCategoryManagerUtils.h"
 #include "nsIMutableArray.h"
 #include "nsCommandLine.h"
@@ -4122,6 +4125,7 @@ class XREMain {
   bool CheckLastStartupWasCrash();
 
 #ifdef MOZ_MULTIUSER
+  void ScheduleMultiUserProfileCleanup();
   void CleanupMultiUserProfile();
 #endif
 
@@ -4152,6 +4156,28 @@ class XREMain {
 };
 
 #ifdef MOZ_MULTIUSER
+void XREMain::ScheduleMultiUserProfileCleanup() {
+  if (!mIsMultiUserProfile || !mProfD) {
+    return;
+  }
+
+  nsCOMPtr<nsIFile> parentDir;
+  nsAutoCString parentPath;
+  nsAutoCString leafName;
+  if (NS_FAILED(mProfD->GetParent(getter_AddRefs(parentDir))) ||
+      NS_FAILED(parentDir->GetNativePath(parentPath)) ||
+      NS_FAILED(mProfD->GetNativeLeafName(leafName))) {
+    return;
+  }
+
+  nsCOMPtr<nsIBackgroundTasksRunner> runner =
+      do_GetService("@mozilla.org/backgroundtasksrunner;1");
+  if (runner) {
+    (void)runner->RemoveDirectoryInDetachedProcess(parentPath, leafName,
+                                                   "60"_ns, ""_ns, ""_ns);
+  }
+}
+
 void XREMain::CleanupMultiUserProfile() {
   if (!mIsMultiUserProfile || !mProfD) {
     return;
@@ -4164,7 +4190,7 @@ void XREMain::CleanupMultiUserProfile() {
   }
 
   AutoSuspendLateWriteChecks suspend;
-  (void)RemoveProfileFiles(mProfD, mProfLD, 10);
+  (void)mProfD->Remove(true);
   mProfD = nullptr;
   mProfLD = nullptr;
   mIsMultiUserProfile = false;
@@ -6685,6 +6711,10 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
     gStartupLock = nullptr;
     gRemoteService = nullptr;
   }
+#endif
+
+#ifdef MOZ_MULTIUSER
+  ScheduleMultiUserProfileCleanup();
 #endif
 
   mScopedXPCOM = nullptr;
