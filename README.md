@@ -25,13 +25,21 @@ Automatic Mozilla updates are intentionally unavailable. Administrators must bui
 
 ## Build for Windows
 
-Install [MozillaBuild](https://firefox-source-docs.mozilla.org/setup/windows_build.html), then run these commands from its shell:
+Install [MozillaBuild](https://firefox-source-docs.mozilla.org/setup/windows_build.html). Before building a package for another Windows machine, add the Microsoft runtime redistributables to your `mozconfig`:
+
+```text
+ac_add_options --with-redist
+```
+
+Then run these commands from the MozillaBuild shell:
 
 ```bash
 ./mach --no-interactive bootstrap --application-choice browser
 ./mach build
 ./mach package
 ```
+
+The packaged ZIP and full installer are written to the `dist` directory under the object directory. Locally built installers use unofficial branding and are not digitally signed.
 
 Windows desktop builds enable multi-user mode automatically. To produce a build with upstream profile and update behavior, add this line to your `mozconfig`:
 
