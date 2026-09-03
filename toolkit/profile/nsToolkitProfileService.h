@@ -19,6 +19,9 @@
 
 class nsStartupLock;
 
+nsresult RemoveProfileFiles(nsIFile* aRootDir, nsIFile* aLocalDir,
+                            uint32_t aLockTimeout);
+
 struct CurrentProfileData {
   nsCString mPath;
   nsCString mStoreID;
