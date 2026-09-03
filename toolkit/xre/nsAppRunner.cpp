@@ -4165,7 +4165,7 @@ void XREMain::ScheduleMultiUserProfileCleanup() {
   nsAutoCString parentPath;
   nsAutoCString leafName;
   if (NS_FAILED(mProfD->GetParent(getter_AddRefs(parentDir))) ||
-      NS_FAILED(parentDir->GetNativePath(parentPath)) ||
+      NS_FAILED(parentDir->GetNativeTarget(parentPath)) ||
       NS_FAILED(mProfD->GetNativeLeafName(leafName))) {
     return;
   }
