@@ -25,6 +25,12 @@ const policiesToTest = [
   },
   {
     policies: {
+      BlockAboutPreferences: true,
+    },
+    urls: ["about:preferences", "about:Preferences"],
+  },
+  {
+    policies: {
       BlockAboutSupport: true,
     },
     urls: ["about:support", "about:suPPort"],

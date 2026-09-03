@@ -4107,6 +4107,9 @@ class XREMain {
 
   ~XREMain() {
     mScopedXPCOM = nullptr;
+#ifdef MOZ_MULTIUSER
+    CleanupMultiUserProfile();
+#endif
     mAppData = nullptr;
   }
 
@@ -4117,6 +4120,10 @@ class XREMain {
   MOZ_CAN_RUN_SCRIPT_BOUNDARY nsresult XRE_mainRun();
 
   bool CheckLastStartupWasCrash();
+
+#ifdef MOZ_MULTIUSER
+  void CleanupMultiUserProfile();
+#endif
 
   nsCOMPtr<nsINativeAppSupport> mNativeApp;
   RefPtr<nsToolkitProfileService> mProfileSvc;
@@ -4139,7 +4146,35 @@ class XREMain {
 #if defined(MOZ_HAS_REMOTE)
   bool mDisableRemoteClient = false;
 #endif
+#ifdef MOZ_MULTIUSER
+  bool mIsMultiUserProfile = false;
+#endif
 };
+
+#ifdef MOZ_MULTIUSER
+void XREMain::CleanupMultiUserProfile() {
+  if (!mIsMultiUserProfile || !mProfD) {
+    return;
+  }
+
+  if (mProfileLock) {
+    mProfileLock->Unlock();
+    mProfileLock = nullptr;
+    gProfileLock = nullptr;
+  }
+
+  AutoSuspendLateWriteChecks suspend;
+  for (uint32_t attempt = 0; attempt < 10; ++attempt) {
+    if (NS_SUCCEEDED(mProfD->Remove(true))) {
+      break;
+    }
+    PR_Sleep(PR_MillisecondsToInterval(10 * (attempt + 1)));
+  }
+  mProfD = nullptr;
+  mProfLD = nullptr;
+  mIsMultiUserProfile = false;
+}
+#endif
 
 #if defined(XP_UNIX) && !defined(ANDROID)
 static SmprintfPointer FormatUid(uid_t aId) {
@@ -5377,6 +5412,13 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
 
   bool wasDefaultSelection;
   nsCOMPtr<nsIToolkitProfile> profile;
+#ifdef MOZ_MULTIUSER
+#  ifdef MOZ_BACKGROUNDTASKS
+  mIsMultiUserProfile = !BackgroundTasks::IsBackgroundTaskMode();
+#  else
+  mIsMultiUserProfile = true;
+#  endif
+#endif
   rv = SelectProfile(mProfileSvc, mNativeApp, getter_AddRefs(mProfD),
                      getter_AddRefs(mProfLD), getter_AddRefs(profile),
                      &wasDefaultSelection);
@@ -6655,7 +6697,12 @@ int XREMain::XRE_main(int argc, char* argv[], const BootstrapConfig& aConfig) {
   // unlock the profile after ScopedXPCOMStartup object (xpcom)
   // has gone out of scope.  see bug #386739 for more details
   mProfileLock->Unlock();
+  mProfileLock = nullptr;
   gProfileLock = nullptr;
+
+#ifdef MOZ_MULTIUSER
+  CleanupMultiUserProfile();
+#endif
 
   gLastAppVersion.Truncate();
   gLastAppBuildID.Truncate();

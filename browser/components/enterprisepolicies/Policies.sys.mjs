@@ -474,6 +474,14 @@ export var Policies = {
     },
   },
 
+  BlockAboutPreferences: {
+    onBeforeUIStartup(manager, param) {
+      if (param) {
+        lazy.blockAboutPage(manager, "about:preferences");
+      }
+    },
+  },
+
   BlockAboutSupport: {
     onBeforeUIStartup(manager, param) {
       if (param) {

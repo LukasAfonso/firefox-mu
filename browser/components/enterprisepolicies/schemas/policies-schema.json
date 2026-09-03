@@ -502,6 +502,19 @@
       "examples": [true]
     },
 
+    "BlockAboutPreferences": {
+      "type": "boolean",
+      "x-category": "Security",
+      "x-compatibility": {
+        "firefox": { "version_added": "157" },
+        "firefox_esr": { "version_added": false },
+        "firefox_enterprise": { "version_added": false }
+      },
+      "x-restart-required": true,
+      "description": "Block access to Settings ('about:preferences').",
+      "examples": [true]
+    },
+
     "BlockAboutSupport": {
       "type": "boolean",
       "x-category": "Security",

@@ -53,6 +53,8 @@ export var AppConstants = Object.freeze({
 
   MOZ_UPDATER: @MOZ_UPDATER_BOOL@,
 
+  MOZ_MULTIUSER: @MOZ_MULTIUSER_BOOL@,
+
   MOZ_WEBRTC: @MOZ_WEBRTC_BOOL@,
 
   MOZ_WIDGET_GTK:

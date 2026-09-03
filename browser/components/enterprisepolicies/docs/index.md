@@ -41,3 +41,13 @@ Two policies that are important for for a kiosk are
 Together they stop Firefox from interrupting the kiosk content with recommendations, onboarding, What's New, and studies.
 
 Kiosk mode also won't suppress updates, the notifications and restart prompts for them, block `about:` pages, developer tools, and other behavior, so you should use policies for controlling these, too.
+
+## Windows multi-user mode
+
+Firefox desktop builds enable multi-user mode by default when the target is Windows. Pass `--disable-multiuser` to produce a normal Windows build.
+
+Multi-user mode creates a unique profile under the current user's Windows temporary directory for each browser process. It does not register the profile in `profiles.ini`. Firefox removes the directory after shutdown. At the next launch, it also removes unlocked temporary profiles left by crashes once they are at least one minute old. Files that users download outside the profile remain on disk.
+
+The mode compiles out the application updater, maintenance service, update agent, and crash reporter. Required policies also disable application and system add-on updates, force private browsing, sanitize browsing data at shutdown, keep downloads in the configured download directory, and block Settings, `about:config`, profile management, add-on management, troubleshooting mode, and developer tools.
+
+Administrators configure remaining settings through `HKEY_LOCAL_MACHINE\SOFTWARE\Policies\Mozilla\Firefox` or `distribution\policies.json` under the installation directory. Multi-user builds ignore policies under `HKEY_CURRENT_USER`. The required privacy, update, and settings-page restrictions cannot be overridden by either policy source. Standard users therefore cannot make persistent browser configuration changes, while administrators can set and lock supported preferences through the machine-wide `Preferences` policy.

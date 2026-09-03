@@ -170,6 +170,11 @@ EnterprisePoliciesManager.prototype = {
 
     // Providers are added from lowest to highest precedence; each one takes
     // precedence over those added before it when top-level policies conflict.
+    if (AppConstants.MOZ_MULTIUSER) {
+      lazy.log.debug("Adding multi-user default provider.");
+      provider.push(new MultiUserDefaultPoliciesProvider());
+    }
+
     lazy.log.debug("Adding JSON provider.");
     provider.push(new JSONPoliciesProvider());
 
@@ -181,6 +186,11 @@ EnterprisePoliciesManager.prototype = {
         lazy.log.debug("Adding macOS platform provider.");
         provider.push(new macOSPoliciesProvider());
       }
+    }
+
+    if (AppConstants.MOZ_MULTIUSER) {
+      lazy.log.debug("Adding multi-user required provider.");
+      provider.push(new MultiUserRequiredPoliciesProvider());
     }
 
     provider.mergePolicies();
@@ -648,6 +658,77 @@ class PoliciesProvider {
   }
 }
 
+class MultiUserDefaultPoliciesProvider extends PoliciesProvider {
+  constructor() {
+    super();
+    this._policies = {
+      BackgroundAppUpdate: false,
+      DisableAccounts: true,
+      DisableAppUpdate: true,
+      DisableDefaultBrowserAgent: true,
+      DisableDeveloperTools: true,
+      DisableFeedbackCommands: true,
+      DisableFirefoxStudies: true,
+      DisableFormHistory: true,
+      DisableLaunchOnLogin: true,
+      DisablePocket: true,
+      DisableProfileImport: true,
+      DisableProfileRefresh: true,
+      DisableRemoteImprovements: true,
+      DisableSafeMode: true,
+      DisableSystemAddonUpdate: true,
+      DisableTelemetry: true,
+      ExtensionSettings: {
+        "*": { installation_mode: "blocked" },
+      },
+      InstallAddonsPermission: { Default: false },
+      PasswordManagerEnabled: false,
+      UserMessaging: {
+        ExtensionRecommendations: false,
+        FeatureRecommendations: false,
+        FirefoxLabs: false,
+        Locked: true,
+        MoreFromMozilla: false,
+        SkipOnboarding: true,
+        UrlbarInterventions: false,
+        WhatsNew: false,
+      },
+    };
+  }
+}
+
+class MultiUserRequiredPoliciesProvider extends PoliciesProvider {
+  constructor() {
+    super();
+    this._policies = {
+      BackgroundAppUpdate: false,
+      BlockAboutAddons: true,
+      BlockAboutConfig: true,
+      BlockAboutPreferences: true,
+      BlockAboutProfiles: true,
+      BlockAboutSupport: true,
+      DisableAccounts: true,
+      DisableAppUpdate: true,
+      DisableDeveloperTools: true,
+      DisableSafeMode: true,
+      DisableSystemAddonUpdate: true,
+      PrivateBrowsingModeAvailability: 2,
+      PromptForDownloadLocation: false,
+      SanitizeOnShutdown: {
+        Cache: true,
+        Cookies: true,
+        Downloads: true,
+        FormData: true,
+        History: true,
+        Locked: true,
+        OfflineApps: true,
+        Sessions: true,
+        SiteSettings: true,
+      },
+    };
+  }
+}
+
 /*
  * JSON PROVIDER OF POLICIES
  *
@@ -774,11 +855,13 @@ class WindowsGPOPoliciesProvider extends PoliciesProvider {
       Ci.nsIWindowsRegKey
     );
 
-    // Machine policies override user policies, so we read
-    // user policies first and then replace them if necessary.
-    this._readData(wrk, wrk.ROOT_KEY_CURRENT_USER);
+    if (!AppConstants.MOZ_MULTIUSER) {
+      // Machine policies override user policies, so we read
+      // user policies first and then replace them if necessary.
+      this._readData(wrk, wrk.ROOT_KEY_CURRENT_USER);
+    }
     // We don't access machine policies in testing
-    if (!Cu.isInAutomation) {
+    if (!Cu.isInAutomation || AppConstants.MOZ_MULTIUSER) {
       this._readData(wrk, wrk.ROOT_KEY_LOCAL_MACHINE);
     }
   }

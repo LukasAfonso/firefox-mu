@@ -54,9 +54,12 @@
 #include "nsThreadUtils.h"
 #include "nsXULAppAPI.h"
 
+#if defined(MOZ_BACKGROUNDTASKS) || defined(MOZ_MULTIUSER)
+#  include "SpecialSystemDirectory.h"
+#endif
+
 #ifdef MOZ_BACKGROUNDTASKS
 #  include "mozilla/BackgroundTasks.h"
-#  include "SpecialSystemDirectory.h"
 #endif
 
 #include "nsIObserverService.h"
@@ -256,6 +259,59 @@ nsresult RemoveProfileFiles(nsIFile* aRootDir, nsIFile* aLocalDir,
 
   return NS_OK;
 }
+
+#ifdef MOZ_MULTIUSER
+nsresult CreateMultiUserProfileDirectory(nsIFile** aRootDir,
+                                         nsIFile** aLocalDir) {
+  nsCOMPtr<nsIFile> tempDir;
+  nsresult rv =
+      GetSpecialSystemDirectory(OS_TemporaryDirectory, getter_AddRefs(tempDir));
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsString installHash;
+  rv = gDirServiceProvider->GetInstallHash(installHash);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCString prefix =
+      nsPrintfCString("%s-MultiUser-%s", MOZ_APP_NAME,
+                      NS_LossyConvertUTF16toASCII(installHash).get());
+
+  nsCOMPtr<nsIDirectoryEnumerator> entries;
+  rv = tempDir->GetDirectoryEntries(getter_AddRefs(entries));
+  if (NS_SUCCEEDED(rv)) {
+    nsCOMPtr<nsIFile> entry;
+    while (NS_SUCCEEDED(entries->GetNextFile(getter_AddRefs(entry))) && entry) {
+      nsCString name;
+      bool isSymlink = false;
+      PRTime modified;
+      if (NS_FAILED(entry->GetNativeLeafName(name)) ||
+          !StringBeginsWith(name, prefix) ||
+          NS_FAILED(entry->IsSymlink(&isSymlink)) || isSymlink ||
+          NS_FAILED(entry->GetLastModifiedTime(&modified)) ||
+          PR_Now() / PR_USEC_PER_MSEC - modified < 60 * 1000) {
+        continue;
+      }
+
+      (void)RemoveProfileFiles(entry, entry, 0);
+    }
+  }
+
+  nsCOMPtr<nsIFile> profileDir;
+  rv = tempDir->Clone(getter_AddRefs(profileDir));
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = profileDir->AppendNative(prefix);
+  NS_ENSURE_SUCCESS(rv, rv);
+  rv = profileDir->CreateUnique(nsIFile::DIRECTORY_TYPE, 0700);
+  NS_ENSURE_SUCCESS(rv, rv);
+
+  nsCOMPtr<nsIFile> localDir;
+  rv = profileDir->Clone(getter_AddRefs(localDir));
+  NS_ENSURE_SUCCESS(rv, rv);
+  profileDir.forget(aRootDir);
+  localDir.forget(aLocalDir);
+  return NS_OK;
+}
+#endif
 
 nsresult WriteFile(nsIFile* aFile, const nsCString& aData) {
   // We cannot use XPCOM to get the output stream for the file because we often
@@ -1593,6 +1649,21 @@ nsresult nsToolkitProfileService::SelectStartupProfile(
 
   nsresult rv;
   const char* arg;
+
+#ifdef MOZ_MULTIUSER
+  bool isBackgroundTask = false;
+#  ifdef MOZ_BACKGROUNDTASKS
+  isBackgroundTask = BackgroundTasks::IsBackgroundTaskMode();
+#  endif
+  if (!isBackgroundTask) {
+    rv = CreateMultiUserProfileDirectory(aRootDir, aLocalDir);
+    NS_ENSURE_SUCCESS(rv, rv);
+    mStartupReason = "multiuser-ephemeral"_ns;
+    *aDidCreate = true;
+    *aProfile = nullptr;
+    return NS_OK;
+  }
+#endif
 
   // Use the profile specified in the environment variables. This is set if we
   // are resetting a selectable profile

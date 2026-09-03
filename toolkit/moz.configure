@@ -1107,6 +1107,23 @@ project_flag(
     set_as_define=True,
 )
 
+@depends(target, build_project)
+def multiuser_default(target, build_project):
+    return target.os == "WINNT" and build_project == "browser"
+
+
+option(
+    "--enable-multiuser",
+    default=multiuser_default,
+    help="Use locked machine policies and ephemeral browsing profiles",
+)
+
+imply_option("--enable-updater", False, when="--enable-multiuser")
+imply_option("--enable-crashreporter", False, when="--enable-multiuser")
+
+set_config("MOZ_MULTIUSER", True, when="--enable-multiuser")
+set_define("MOZ_MULTIUSER", True, when="--enable-multiuser")
+
 
 @depends("MOZ_PLACES", "MOZ_GECKOVIEW_HISTORY")
 def check_places_and_geckoview_history(places, geckoview_history):
