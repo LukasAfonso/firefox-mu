@@ -76,7 +76,7 @@
 
 #include "nsIAppStartup.h"
 #ifdef MOZ_MULTIUSER
-#  include "nsIBackgroundTasksRunner.h"
+#  include "mozilla/BackgroundTasksRunner.h"
 #endif
 #include "nsCategoryManagerUtils.h"
 #include "nsIMutableArray.h"
@@ -4109,6 +4109,9 @@ class XREMain {
   XREMain() = default;
 
   ~XREMain() {
+#ifdef MOZ_MULTIUSER
+    ScheduleMultiUserProfileCleanup();
+#endif
     mScopedXPCOM = nullptr;
 #ifdef MOZ_MULTIUSER
     CleanupMultiUserProfile();
@@ -4152,31 +4155,30 @@ class XREMain {
 #endif
 #ifdef MOZ_MULTIUSER
   bool mIsMultiUserProfile = false;
+  bool mMultiUserCleanupScheduled = false;
 #endif
 };
 
 #ifdef MOZ_MULTIUSER
 void XREMain::ScheduleMultiUserProfileCleanup() {
-  if (!mIsMultiUserProfile || !mProfD) {
+  if (!mIsMultiUserProfile || mMultiUserCleanupScheduled || !mProfD ||
+      !mProfLD) {
     return;
   }
 
-  nsCOMPtr<nsIFile> parentDir;
-  nsAutoString parentPath;
-  nsAutoString leafName;
-  if (NS_FAILED(mProfD->GetParent(getter_AddRefs(parentDir))) ||
-      NS_FAILED(parentDir->GetPath(parentPath)) ||
-      NS_FAILED(mProfD->GetLeafName(leafName))) {
+  nsAutoString rootPath;
+  nsAutoString localPath;
+  if (NS_FAILED(mProfD->GetPath(rootPath)) ||
+      NS_FAILED(mProfLD->GetPath(localPath))) {
     return;
   }
 
-  nsCOMPtr<nsIBackgroundTasksRunner> runner =
-      do_GetService("@mozilla.org/backgroundtasksrunner;1");
-  if (runner) {
-    (void)runner->RemoveDirectoryInDetachedProcess(
-        NS_ConvertUTF16toUTF8(parentPath), NS_ConvertUTF16toUTF8(leafName),
-        "60"_ns, ""_ns, ""_ns);
-  }
+  nsTArray<nsCString> args = {NS_ConvertUTF16toUTF8(rootPath),
+                              NS_ConvertUTF16toUTF8(localPath), "2147480"_ns};
+  RefPtr<mozilla::BackgroundTasksRunner> runner =
+      new mozilla::BackgroundTasksRunner();
+  mMultiUserCleanupScheduled =
+      NS_SUCCEEDED(runner->RunInDetachedProcess("removeProfileFiles"_ns, args));
 }
 
 void XREMain::CleanupMultiUserProfile() {
@@ -5705,6 +5707,10 @@ int XREMain::XRE_mainStartup(bool* aExitFlag,
   }
 
   gProfileLock = mProfileLock;
+
+#ifdef MOZ_MULTIUSER
+  ScheduleMultiUserProfileCleanup();
+#endif
 
   nsAutoCString version;
   BuildVersion(version);

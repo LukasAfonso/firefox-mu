@@ -109,7 +109,6 @@ async function deleteChildDirectory(
   let targetFile = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
   targetFile.initWithPath(parentDirPath);
   targetFile.append(childDirName);
-  const deadline = Date.now() + secondsToWait * 1000;
 
   // We create the lock before the file is actually there so this task
   // is the first one to acquire the lock. Otherwise a different task
@@ -142,7 +141,10 @@ async function deleteChildDirectory(
   // Only if spawning the process is successful is the cache folder renamed,
   // so we need to wait until that is done.
   while (!targetFile.exists()) {
-    if (Date.now() >= deadline) {
+    if (
+      metrics.retryCount * FILE_CHECK_ITERATION_TIMEOUT_MS >
+      secondsToWait * 1000
+    ) {
       // We don't know for sure if the folder was renamed or if a different
       // task removed it already. The second variant is more likely but to
       // be sure we'd have to consult a log file, which introduces
@@ -171,18 +173,12 @@ async function deleteChildDirectory(
 
   console.error(`started removing ${targetFile.path}`);
   try {
-    while (!tryRemoveDir(targetFile, metrics.removalCountObj)) {
-      if (!targetFile.exists()) {
-        break;
-      }
-      if (Date.now() >= deadline) {
-        throw new Error(`Timed out removing ${targetFile.path}`);
-      }
-      await new Promise(resolve =>
-        lazy.setTimeout(resolve, FILE_CHECK_ITERATION_TIMEOUT_MS)
-      );
-      metrics.retryCount++;
-    }
+    targetFile.remove(true, metrics.removalCountObj);
+  } catch (err) {
+    console.error(
+      `failed removing ${targetFile.path}. removed ${metrics.removalCountObj.value} entries.`
+    );
+    throw err;
   } finally {
     console.error(
       `done removing ${targetFile.path}. removed ${metrics.removalCountObj.value} entries.`

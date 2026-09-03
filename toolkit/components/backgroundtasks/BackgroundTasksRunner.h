@@ -12,6 +12,7 @@ namespace mozilla {
 
 class BackgroundTasksRunner final : public nsIBackgroundTasksRunner {
  public:
+  BackgroundTasksRunner() = default;
   NS_DECL_THREADSAFE_ISUPPORTS
   NS_DECL_NSIBACKGROUNDTASKSRUNNER
  protected:

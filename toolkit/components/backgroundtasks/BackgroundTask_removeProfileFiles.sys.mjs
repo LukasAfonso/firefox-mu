@@ -7,6 +7,8 @@ import { EXIT_CODE } from "resource://gre/modules/BackgroundTasksManager.sys.mjs
 import { XPCOMUtils } from "resource://gre/modules/XPCOMUtils.sys.mjs";
 
 const lazy = {};
+export const backgroundTaskTimeoutSec = 2147480;
+
 XPCOMUtils.defineLazyServiceGetter(
   lazy,
   "ProfileService",
