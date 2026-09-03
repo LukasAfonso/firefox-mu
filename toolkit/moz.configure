@@ -3321,10 +3321,13 @@ with only_when(target_is_android):
                 return "unknown"
 
 
-@depends("MOZ_APP_DISPLAYNAME", mangled_username)
-def moz_app_displayname(value, username):
+@depends("MOZ_APP_DISPLAYNAME", mangled_username, target, "--enable-multiuser")
+def moz_app_displayname(value, username, target, multiuser):
     if not value:
         return
+
+    if multiuser and target.os == "WINNT":
+        return "Firefox"
 
     if username:
         return f"{value[0]} {username}"
