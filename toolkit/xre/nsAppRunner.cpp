@@ -4164,11 +4164,11 @@ void XREMain::CleanupMultiUserProfile() {
   }
 
   AutoSuspendLateWriteChecks suspend;
-  for (uint32_t attempt = 0; attempt < 10; ++attempt) {
+  for (uint32_t attempt = 0; attempt < 100; ++attempt) {
     if (NS_SUCCEEDED(mProfD->Remove(true))) {
       break;
     }
-    PR_Sleep(PR_MillisecondsToInterval(10 * (attempt + 1)));
+    PR_Sleep(PR_MillisecondsToInterval(100));
   }
   mProfD = nullptr;
   mProfLD = nullptr;
