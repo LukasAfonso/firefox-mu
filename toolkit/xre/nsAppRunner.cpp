@@ -4162,19 +4162,20 @@ void XREMain::ScheduleMultiUserProfileCleanup() {
   }
 
   nsCOMPtr<nsIFile> parentDir;
-  nsAutoCString parentPath;
-  nsAutoCString leafName;
+  nsAutoString parentPath;
+  nsAutoString leafName;
   if (NS_FAILED(mProfD->GetParent(getter_AddRefs(parentDir))) ||
-      NS_FAILED(parentDir->GetNativeTarget(parentPath)) ||
-      NS_FAILED(mProfD->GetNativeLeafName(leafName))) {
+      NS_FAILED(parentDir->GetPath(parentPath)) ||
+      NS_FAILED(mProfD->GetLeafName(leafName))) {
     return;
   }
 
   nsCOMPtr<nsIBackgroundTasksRunner> runner =
       do_GetService("@mozilla.org/backgroundtasksrunner;1");
   if (runner) {
-    (void)runner->RemoveDirectoryInDetachedProcess(parentPath, leafName,
-                                                   "60"_ns, ""_ns, ""_ns);
+    (void)runner->RemoveDirectoryInDetachedProcess(
+        NS_ConvertUTF16toUTF8(parentPath), NS_ConvertUTF16toUTF8(leafName),
+        "60"_ns, ""_ns, ""_ns);
   }
 }
 
